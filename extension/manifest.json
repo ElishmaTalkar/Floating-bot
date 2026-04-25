@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "RevOps AI Sales Assistant",
+  "version": "1.0",
+  "description": "Floating AI bot to analyze B2B leads across any website.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "*://*.make.com/*",
+    "*://*.n8n.cloud/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "js": ["db.js", "content.js"],
+      "css": ["style.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "48": "icon.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["style.css", "icon.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

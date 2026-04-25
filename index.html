@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RevOps AI Sales Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Floating Bubble -->
+    <div id="chat-bubble" class="chat-bubble">
+        <i class="fas fa-robot"></i>
+        <div class="pulse"></div>
+    </div>
+
+    <!-- Chat Container -->
+    <div id="chat-container" class="chat-container hidden">
+        <div class="chat-header">
+            <div class="header-info">
+                <div class="status-dot"></div>
+                <h3>RevOps Assistant</h3>
+            </div>
+            <button id="close-chat" class="close-btn">&times;</button>
+        </div>
+        
+        <div id="chat-messages" class="chat-messages">
+            <div class="message bot">
+                Hi! I'm your AI Sales Assistant. Paste some lead details here (Name, Title, Company, Size, Industry) and I'll analyze if they're a fit for your RevOps tool.
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <textarea id="user-input" placeholder="e.g. John Smith, Head of RevOps, HubSpot, 150 employees, B2B SaaS..." rows="1"></textarea>
+            <button id="send-btn" class="send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

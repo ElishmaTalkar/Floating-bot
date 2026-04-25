@@ -412,7 +412,7 @@ if (!window.revopsInjected) {
                     const errMsg = response?.error || "Could not reach the central knowledge base.";
                     const isQuota = errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('429');
                     if (isQuota) {
-                        addMessage("❌ <strong>API Quota Exhausted.</strong> The Gemini free tier allows 20 scans/day. Create a new Google AI project at <code>aistudio.google.com</code>, get a fresh API key, and update <code>.env</code>.", 'bot-ext');
+                        addMessage("❌ <strong>Rate limit hit.</strong> Groq's free tier has a daily token cap. Wait a few minutes and try again, or upgrade at <code>console.groq.com/settings/billing</code>.", 'bot-ext');
                     } else {
                         addMessage(`❌ <strong>Scan Failed:</strong> ${errMsg}`, 'bot-ext');
                     }

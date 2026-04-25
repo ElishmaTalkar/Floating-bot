@@ -11,7 +11,32 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// Key rotation — reads GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3 ... from .env
+const groqKeys = Object.entries(process.env)
+    .filter(([k]) => k === 'GROQ_API_KEY' || k.startsWith('GROQ_API_KEY_'))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v)
+    .filter(Boolean);
+
+if (groqKeys.length === 0) throw new Error('No GROQ_API_KEY found in environment');
+console.log(`[Keys] Loaded ${groqKeys.length} Groq API key(s)`);
+
+let currentKeyIndex = 0;
+const getGroq = () => new Groq({ apiKey: groqKeys[currentKeyIndex] });
+
+const groqCall = async (params, attempt = 0) => {
+    try {
+        return await getGroq().chat.completions.create(params);
+    } catch (err) {
+        const is429 = err?.status === 429 || err?.message?.includes('429') || err?.message?.toLowerCase().includes('rate limit');
+        if (is429 && attempt < groqKeys.length - 1) {
+            console.warn(`[Keys] Key ${currentKeyIndex + 1} rate-limited — rotating to next key`);
+            currentKeyIndex = (currentKeyIndex + 1) % groqKeys.length;
+            return groqCall(params, attempt + 1);
+        }
+        throw err;
+    }
+};
 
 const pushToSheets = async (lead, decision) => {
     const webhookUrl = process.env.SHEETS_WEBHOOK_URL;
@@ -122,7 +147,7 @@ RESPOND IN JSON ONLY — no markdown, no extra text:
         `;
 
         // CALL 1: Score only
-        const scoreResult = await groq.chat.completions.create({
+        const scoreResult = await groqCall({
             model: 'llama-3.3-70b-versatile',
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: 'json_object' },
@@ -153,7 +178,7 @@ Return exactly this JSON shape:
   "connection_note": "A LinkedIn connection request note. STRICT 280 character max. Must include ONE hyper-specific detail that only someone who actually read the full profile would know — an exact tenure (e.g. '6 years at X'), a specific tool they listed (e.g. 'you use Gong + Apollo'), a company they built something at, a career gap, a side project, or a specific metric they mentioned. This detail is what makes the message impossible for ChatGPT or LinkedIn AI to replicate without the actual profile data. Follow it with one sharp question. No pitch, no 'I'd love to connect'. Examples: 'Left Salesforce after exactly 6 years to advise Nava and BeeHyv — curious what made consulting the right move over another operator role.' / '9 months into Slintel after 4 years scaling Freshworks' SMB team — what's the thing from that playbook that didn't transfer?'"
 }`;
 
-            const msgResult = await groq.chat.completions.create({
+            const msgResult = await groqCall({
                 model: 'qwen/qwen3-32b',
                 messages: [{ role: 'user', content: msgPrompt }],
                 response_format: { type: 'json_object' },
@@ -254,7 +279,7 @@ Return only JSON:
   "avoid": ["3-4 specific profile types that are a clear waste of time for this product"]
 }`;
 
-        const result = await groq.chat.completions.create({
+        const result = await groqCall({
             model: 'llama-3.3-70b-versatile',
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: 'json_object' },
@@ -293,7 +318,7 @@ Write a follow-up reply. Rules:
 
 Return only JSON: { "follow_up": "the message" }`;
 
-        const result = await groq.chat.completions.create({
+        const result = await groqCall({
             model: 'qwen/qwen3-32b',
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: 'json_object' },

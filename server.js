@@ -111,6 +111,8 @@ const pushToSheets = async (lead, decision) => {
 };
 
 // --- Intelligence Parsing & Decision Endpoint ---
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'RevOps AI Backend' }));
+
 app.post('/process-lead', async (req, res) => {
     console.log("-----------------------------------------");
     console.log("📥 NEW INTELLIGENCE REQUEST RECEIVED");

@@ -412,7 +412,7 @@ if (!window.revopsInjected) {
                     const errMsg = response?.error || "Could not reach the central knowledge base.";
                     const isQuota = errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('429');
                     if (isQuota) {
-                        addMessage("❌ <strong>Rate limit hit.</strong> Groq's free tier has a daily token cap. Wait a few minutes and try again, or upgrade at <code>console.groq.com/settings/billing</code>.", 'bot-ext');
+                        addMessage("⏳ <strong>All AI providers are busy.</strong> Both Groq and Gemini hit their rate limits. Retrying automatically — or wait ~1 minute and scan again.", 'bot-ext');
                     } else {
                         addMessage(`❌ <strong>Scan Failed:</strong> ${errMsg}`, 'bot-ext');
                     }

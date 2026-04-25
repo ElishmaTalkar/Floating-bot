@@ -26,13 +26,13 @@ let currentKeyIndex = 0;
 const getGroq = () => new Groq({ apiKey: groqKeys[currentKeyIndex] });
 
 // Gemini fallback — called when all Groq keys are exhausted
-const geminiCall = async (params) => {
+const geminiCall = async (params, retryCount = 0) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === 'your_gemini_api_key') throw new Error('No Gemini API key configured');
 
-    console.warn('[Fallback] All Groq keys exhausted — using Gemini');
+    console.warn(`[Fallback] Groq exhausted — using Gemini (attempt ${retryCount + 1})`);
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const userMessage = params.messages?.find(m => m.role === 'user')?.content || '';
     const isJson = params.response_format?.type === 'json_object';
@@ -40,25 +40,42 @@ const geminiCall = async (params) => {
         ? `${userMessage}\n\nRespond with valid JSON only. No markdown, no code blocks.`
         : userMessage;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/^```json\n?|\n?```$/g, '').trim();
+    try {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().replace(/^```json\n?|\n?```$/g, '').trim();
+        return { choices: [{ message: { content: text } }] };
+    } catch (err) {
+        // Extract retry delay from Gemini's error response
+        const retryMatch = err?.message?.match(/retryDelay["\s:]+(\d+)/);
+        const retryAfterSec = retryMatch ? parseInt(retryMatch[1]) + 2 : 60;
 
-    // Return in Groq-compatible shape
-    return { choices: [{ message: { content: text } }] };
+        if (retryCount < 2 && err?.message?.includes('429')) {
+            console.warn(`[Gemini] Rate limited — retrying in ${retryAfterSec}s`);
+            await new Promise(r => setTimeout(r, retryAfterSec * 1000));
+            return geminiCall(params, retryCount + 1);
+        }
+        throw err;
+    }
 };
 
 const groqCall = async (params, attempt = 0) => {
     try {
         return await getGroq().chat.completions.create(params);
     } catch (err) {
-        const is429 = err?.status === 429 || err?.message?.includes('429') || err?.message?.toLowerCase().includes('rate limit');
+        const errStr = JSON.stringify(err).toLowerCase();
+        const is429 = err?.status === 429 ||
+                      String(err?.status) === '429' ||
+                      errStr.includes('429') ||
+                      errStr.includes('rate_limit') ||
+                      errStr.includes('rate limit') ||
+                      errStr.includes('quota');
+        console.warn(`[groqCall] Error on key ${currentKeyIndex + 1}: status=${err?.status} is429=${is429}`);
         if (is429) {
             if (attempt < groqKeys.length - 1) {
-                console.warn(`[Keys] Key ${currentKeyIndex + 1} rate-limited — rotating to next key`);
+                console.warn(`[Keys] Rotating to key ${currentKeyIndex + 2}`);
                 currentKeyIndex = (currentKeyIndex + 1) % groqKeys.length;
                 return groqCall(params, attempt + 1);
             }
-            // All Groq keys exhausted — try Gemini
             return geminiCall(params);
         }
         throw err;

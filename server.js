@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const Groq = require('groq-sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config({ override: true });
 
 const app = express();
@@ -24,15 +25,41 @@ console.log(`[Keys] Loaded ${groqKeys.length} Groq API key(s)`);
 let currentKeyIndex = 0;
 const getGroq = () => new Groq({ apiKey: groqKeys[currentKeyIndex] });
 
+// Gemini fallback — called when all Groq keys are exhausted
+const geminiCall = async (params) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'your_gemini_api_key') throw new Error('No Gemini API key configured');
+
+    console.warn('[Fallback] All Groq keys exhausted — using Gemini');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const userMessage = params.messages?.find(m => m.role === 'user')?.content || '';
+    const isJson = params.response_format?.type === 'json_object';
+    const prompt = isJson
+        ? `${userMessage}\n\nRespond with valid JSON only. No markdown, no code blocks.`
+        : userMessage;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/^```json\n?|\n?```$/g, '').trim();
+
+    // Return in Groq-compatible shape
+    return { choices: [{ message: { content: text } }] };
+};
+
 const groqCall = async (params, attempt = 0) => {
     try {
         return await getGroq().chat.completions.create(params);
     } catch (err) {
         const is429 = err?.status === 429 || err?.message?.includes('429') || err?.message?.toLowerCase().includes('rate limit');
-        if (is429 && attempt < groqKeys.length - 1) {
-            console.warn(`[Keys] Key ${currentKeyIndex + 1} rate-limited — rotating to next key`);
-            currentKeyIndex = (currentKeyIndex + 1) % groqKeys.length;
-            return groqCall(params, attempt + 1);
+        if (is429) {
+            if (attempt < groqKeys.length - 1) {
+                console.warn(`[Keys] Key ${currentKeyIndex + 1} rate-limited — rotating to next key`);
+                currentKeyIndex = (currentKeyIndex + 1) % groqKeys.length;
+                return groqCall(params, attempt + 1);
+            }
+            // All Groq keys exhausted — try Gemini
+            return geminiCall(params);
         }
         throw err;
     }

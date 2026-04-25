@@ -90,17 +90,15 @@ Google Sheets (via Apps Script webhook)
 
 ## Why It's Useful
 
-**For SDRs and founders doing outbound:**
-Every hour spent on LinkedIn manually qualifying profiles is an hour not spent selling. The bot compresses that to seconds. More importantly, it makes the judgment consistent — the same ICP criteria applied to every profile, every time.
+The problem isn't volume — most sales teams already send enough messages. The problem is that the wrong people get them, and the right people get ones that look like everyone else's.
 
-**For message quality:**
-LinkedIn's AI writer produces messages that look like LinkedIn's AI writer. Prospects have seen them. They don't reply. The bot produces messages that reference specific, verifiable profile data — the kind of detail that makes someone stop and think "this person actually looked at my profile."
+This bot changes the conversion rate at both ends:
 
-**For pipeline visibility:**
-Every lead scored and messaged is automatically in a spreadsheet. Score distribution, approval rate, roles being targeted — all visible without any manual logging.
+**Targeting:** The same ICP criteria applied to every profile, every time. No gut feel, no "seems relevant." A VP Sales at a 30-person B2B SaaS gets a 7. A senior AE at an enterprise gets a 2. The decision is made before the message is written.
 
-**The compounding effect:**
-Better targeting × better messaging = higher acceptance rate × higher reply quality. You're not just saving time — you're changing the conversion rate at both ends of the funnel.
+**Messaging:** LinkedIn's AI writer produces messages prospects have already seen and ignored. This bot references an exact tenure, a specific company transition, a career signal that only someone who actually read the profile would notice. That's what makes someone stop scrolling and reply.
+
+One is a time saving. Together they're a conversion rate change — and that's the number that actually matters in outbound.
 
 ---
 

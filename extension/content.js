@@ -3,7 +3,7 @@ if (!window.revopsInjected) {
     window.revopsInjected = true;
     
     // Initialize Database & Brain URL
-    window.RevOpsBrainURL = "http://localhost:3000/process-lead"; // Global Default
+    window.RevOpsBrainURL = "https://floating-bot.onrender.com/process-lead"; // Render deployment
     
     window.RevOpsProductContext = null;
 

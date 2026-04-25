@@ -46,18 +46,45 @@ Every scan — approved or skipped — is automatically pushed to a Google Sheet
 
 ---
 
-## Tech Stack
+## Architecture
 
-| Layer | Technology | Why |
-|---|---|---|
-| Extension | Chrome MV3 (content script + background worker) | Lives inside LinkedIn — no copy-pasting, no tab switching |
-| Backend | Node.js + Express | Lightweight API server, keeps prompts and keys server-side |
-| Primary LLM | Groq — LLaMA 3.3 70B | Fast inference, free tier, strong reasoning on structured scoring |
-| Message LLM | Groq — Qwen 32B | Separate model optimised for natural language generation |
-| Fallback LLM | Google Gemini 2.0 Flash | Auto-switches when Groq hits daily quota — no downtime |
-| Key Rotation | Multi-key cycling in server.js | Multiple API keys rotate automatically on 429 errors |
-| CRM Sync | Google Sheets via Apps Script webhook | Zero setup, shareable, queryable — no database needed at this stage |
-| Persistence | chrome.storage.local | Chat history, product context, and last scan survive page reloads |
+```
+LinkedIn Profile Page
+        │
+        ▼
+Chrome Extension (MV3)
+  ├── content.js        — scrapes profile, runs chat UI, handles commands
+  ├── background.js     — routes API calls, manages auth headers
+  └── chrome.storage    — persists product context, chat history, last scan
+        │
+        ▼ HTTP POST (localhost:3000 / Railway)
+Node.js + Express Backend
+  ├── /process-lead     — scores profile + generates messages
+  ├── /analyze-product  — extracts ICP from product description
+  └── /follow-up        — generates reply based on conversation context
+        │
+        ├── Call 1: LLaMA 3.3 70B (Groq)
+        │     └── Scores lead 0–10 across 5 dimensions → JSON
+        │
+        ├── Call 2: Qwen 32B (Groq)   [only if score ≥ 5]
+        │     └── Generates fact + insight + question → assembled into DM
+        │
+        └── Fallback: Gemini 2.0 Flash
+              └── Auto-switches when Groq quota exhausted
+                  Retries with delay extracted from error response
+        │
+        ▼
+Google Sheets (via Apps Script webhook)
+  └── Every scan logged — name, score, role, messages, timestamp
+```
+
+**Key architectural decisions:**
+
+- **Two LLM calls, not one** — scoring and message generation are separated. One prompt doing both produced inflated scores and weak messages. Splitting them gives clean scores and better copy independently.
+- **Backend, not direct API calls** — API keys can't be safely stored in a Chrome extension. All prompt logic lives server-side so it can be iterated without reloading the extension.
+- **Component-based message assembly** — the model fills `fact`, `insight`, and `question` as separate fields. The backend concatenates them. This gives structural control over the message format while letting the model fill the content.
+- **Key rotation** — server reads `GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3` from env and cycles on 429. Groq free tier is 100k tokens/day per key.
+- **Google Sheets over a database** — a webhook append is sufficient at this stage. Sheets is shareable, queryable, and requires zero infrastructure.
 
 ---
 

@@ -1,154 +1,104 @@
-# RevOps AI — Submission Document
+# RevOps AI — Floating Bot
 
-**What it is:** A Chrome extension that sits on LinkedIn, qualifies leads against your ICP in real time, and writes personalised outreach you can send immediately.
-
-**GitHub:** https://github.com/ElishmaTalkar/Floating-bot  
-**Stack:** Chrome Extension (MV3) · Node.js/Express · Groq (LLaMA 3.3 70B) · Gemini 2.0 Flash fallback · Google Sheets CRM
+**Built by:** Elishma Talkar
+**GitHub:** https://github.com/ElishmaTalkar/Floating-bot
 
 ---
 
-## 1. The Problem
+## The Problem
 
-SDRs and founders doing outbound on LinkedIn face three compounding problems:
+Cold outreach on LinkedIn has two failure points: you're messaging the wrong people, and the messages look like everyone else's.
 
-1. **No filter** — they scan profiles manually, waste time on unqualified leads, and use gut feel instead of criteria
-2. **Generic outreach** — they send the same connection note to everyone, or use AI tools that produce messages LinkedIn's own AI could write
-3. **No system** — leads disappear after a conversation, context is lost, nothing gets tracked
+Most sales teams either spray broadly with no filter, or use LinkedIn's AI writer which produces messages indistinguishable from the next person's. The result is low acceptance rates and replies that go nowhere — not because the product is wrong, but because the wrong person got a generic message.
 
-The result: hours spent per day on LinkedIn with no repeatable process and no record of what happened.
+There's no system deciding *who* is worth reaching out to before the message is sent. And even when the right person is found, the outreach doesn't reflect that.
 
 ---
 
-## 2. What Was Built
+## What It Does
 
-A floating widget that lives on every LinkedIn page. The full flow:
+Floating Bot is an AI agent that sits inside LinkedIn as a Chrome extension. It fixes both failure points.
 
-```
-Paste product description
-        ↓
-Bot analyzes ICP — who to pitch, what signals to look for
-        ↓
-Open any LinkedIn profile → click Robot button
-        ↓
-Bot scrapes profile (name, role, about, experience, skills)
-        ↓
-Scores lead 0–10 across 5 dimensions (see below)
-        ↓
-Score ≥ 5 → generates connection note (≤280 chars) + full DM
-        ↓
-Prospect replies → type REPLY: [their message] → context-aware follow-up
-        ↓
-Every scan auto-logs to Google Sheets (name, score, role, messages, timestamp)
-```
+**Step 1 — You define your target.**
+Paste your product description into the bot. The agent reads it, understands your ICP — who the ideal buyer is, what pain they have, what signals on a profile indicate a real fit, and what disqualifies someone.
 
-### Scoring Model — 5 Dimensions (max 10 pts)
+**Step 2 — It decides who's worth contacting.**
+Open any LinkedIn profile and hit the scan button. The agent reads the person's role, experience, company, career signals, and bio — then scores them 0–10 across five dimensions:
 
-| Dimension | Max | What earns points |
+| Dimension | What it measures |
+|---|---|
+| Buying Authority | Can they actually make a purchase decision? |
+| Role-to-Product Fit | Does their daily work experience the pain your product solves? |
+| Company Fit | Right industry, size, and stage? |
+| Pain & Intent Signals | Does their profile explicitly or implicitly signal the problem? |
+| Timing & Urgency | New role, recent funding, active hiring — are they in a buying window? |
+
+Score ≥ 5 → worth contacting. Score < 5 → skip. No gut feel, no wasted messages.
+
+**Step 3 — It writes the outreach.**
+Not a template. Not what LinkedIn's AI writer would produce. The message references something only someone who actually read the profile would know — an exact tenure, a company they built something at, a career move that signals the right timing. A connection note under 280 characters and a full DM, ready to send.
+
+**Step 4 — It handles the follow-up.**
+When the prospect replies, paste their message into the bot. It reads the conversation context and writes a response that continues the thread naturally — no starting from scratch.
+
+**Step 5 — Every lead is logged.**
+Every scan — approved or skipped — is automatically pushed to a Google Sheets CRM with the name, LinkedIn URL, score, role, reason, and the exact messages generated. Nothing falls through the cracks.
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Why |
 |---|---|---|
-| Buying Authority | 3 | Founder/CEO/VP = 3, Head/Manager = 2, Senior IC = 1, SDR/Engineer = 0 |
-| Role-to-Product Fit | 2 | Directly owns the pain vs. adjacent vs. no connection |
-| Company Fit | 2 | Right industry + size + stage vs. 2/3 vs. wrong fit |
-| Pain & Intent Signals | 2 | Explicit mention in bio vs. implicit career signals vs. none |
-| Timing & Urgency | 1 | New role (<12mo), recent funding, active sales hiring |
-
-Score ≥ 5 → APPROVE. Score < 5 → SKIP. The model is instructed to be strict — a 10 means near-perfect buyer, most real profiles score 4–7.
-
----
-
-## 3. Structured Thinking — Key Design Decisions
-
-### Why a Chrome extension, not a web app?
-The data lives on LinkedIn. Any approach that requires copy-pasting profile content adds friction that kills the workflow. The extension brings the tool to the data, not the other way around.
-
-### Why a local backend instead of calling the API directly from the extension?
-Three reasons:
-- API keys can't be safely stored in a Chrome extension (visible in source)
-- The scoring logic (prompts, post-processing, message assembly) needs to stay server-side and be iterable without reloading the extension
-- The Google Sheets sync and key rotation logic belong on a server
-
-### Why two LLM calls instead of one?
-One call asking the model to both score AND write messages produced poor results — the model either scored generously to justify writing a message, or wrote a message that contradicted the score. Splitting into:
-- **Call 1 (LLaMA 3.3 70B):** Score only, JSON output, strict rubric
-- **Call 2 (Qwen 32B):** Message only, given the approved profile
-
-...gave cleaner scores and better messages independently.
-
-### Why component-based message assembly?
-Asking the model for a complete message gave inconsistent structure. Instead, the model fills three fields:
-- `fact` — one specific, verifiable thing from their profile
-- `insight` — a universal truth about people in their situation
-- `question` — one short question using "you/your"
-
-The backend concatenates them: `{fact} — {insight}. {question}`
-
-This gives backend control over message structure while letting the model fill content. It also catches third-person leakage ("he built" → "you built") at the assembly layer.
+| Extension | Chrome MV3 (content script + background worker) | Lives inside LinkedIn — no copy-pasting, no tab switching |
+| Backend | Node.js + Express | Lightweight API server, keeps prompts and keys server-side |
+| Primary LLM | Groq — LLaMA 3.3 70B | Fast inference, free tier, strong reasoning on structured scoring |
+| Message LLM | Groq — Qwen 32B | Separate model optimised for natural language generation |
+| Fallback LLM | Google Gemini 2.0 Flash | Auto-switches when Groq hits daily quota — no downtime |
+| Key Rotation | Multi-key cycling in server.js | Multiple API keys rotate automatically on 429 errors |
+| CRM Sync | Google Sheets via Apps Script webhook | Zero setup, shareable, queryable — no database needed at this stage |
+| Persistence | chrome.storage.local | Chat history, product context, and last scan survive page reloads |
 
 ---
 
-## 4. Practical Problems Solved
+## Why It's Useful
 
-**LinkedIn SPA navigation** — LinkedIn is a React SPA. Page navigations don't reload the document, so `DOMContentLoaded` never fires again. Fixed with a `setInterval` URL watcher that re-injects the widget when it disappears from the DOM.
+**For SDRs and founders doing outbound:**
+Every hour spent on LinkedIn manually qualifying profiles is an hour not spent selling. The bot compresses that to seconds. More importantly, it makes the judgment consistent — the same ICP criteria applied to every profile, every time.
 
-**DOM scraping noise** — `document.body.innerText` captured "People You May Know", ads, carousels, and suggestions alongside profile data — inflating token usage and confusing the model. Fixed by targeting `div.scaffold-layout__main` (LinkedIn's main column), cloning it, stripping known noise selectors, and using anchor IDs (`#experience`, `#about`, `#education`) for section extraction.
+**For message quality:**
+LinkedIn's AI writer produces messages that look like LinkedIn's AI writer. Prospects have seen them. They don't reply. The bot produces messages that reference specific, verifiable profile data — the kind of detail that makes someone stop and think "this person actually looked at my profile."
 
-**API quota exhaustion** — Free Groq tier is 100k tokens/day, which runs out fast with a 2-call architecture. Built a rotation system: server reads `GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3` etc. from `.env`, cycles to the next key on 429. When all Groq keys are exhausted, falls back to Gemini 2.0 Flash with automatic retry using the delay from the error response.
+**For pipeline visibility:**
+Every lead scored and messaged is automatically in a spreadsheet. Score distribution, approval rate, roles being targeted — all visible without any manual logging.
 
-**Context loss across sessions** — The extension is injected on every page load. Without persistence, product context, chat history, and last scan context were lost on every navigation. Fixed with `chrome.storage.local` — all three are saved on write and restored on inject.
-
-**Third-person messages** — Models trained on profile-summarization tasks default to third person ("He scaled the sales team..."). Fixed with a post-processing layer using regex replacements (`he → you`, `his → your`, `he's → you're`) applied after message assembly.
-
----
-
-## 5. What Was Deliberately Left Out
-
-| Considered | Decision | Reason |
-|---|---|---|
-| Full CRM (custom DB) | Used Google Sheets instead | Sheets is already familiar, queryable, shareable — building a DB adds weeks for zero user benefit at this stage |
-| Auto-send connection requests | Not built | LinkedIn detects automation and bans accounts — this crosses a clear risk line |
-| Vector search over past conversations | Not built | `chrome.storage.local` with 80-message cap is sufficient for the actual use case (follow-up context) |
-| Webhook-based LinkedIn DOM monitoring | Not built | Interval polling every second is ugly but reliable — MutationObserver on a SPA with heavy DOM churn causes false positives |
-| OpenAI as the LLM | Used Groq instead | Same model quality, 10x faster inference, generous free tier — no reason to pay for OpenAI at this stage |
-| Containerised deployment | Skipped | Railway deploys Node.js directly from GitHub — Docker adds complexity with no benefit until the team scales |
+**The compounding effect:**
+Better targeting × better messaging = higher acceptance rate × higher reply quality. You're not just saving time — you're changing the conversion rate at both ends of the funnel.
 
 ---
 
-## 6. What Good Judgment Looks Like in Practice
-
-Three examples from build decisions:
-
-**Scoring threshold at 5, not 7.** Initially set at 7 — too strict, almost nothing approved. Set at 3 — too loose, the messages were generic. 5 matches the real-world distribution where a half-decent fit is worth one message.
-
-**Connection note at 280 characters, not 300.** LinkedIn's hard limit is 300. Left 20 characters of buffer for the personalisation variable (first name prepend) without risking truncation.
-
-**Gemini as fallback, not primary.** Gemini's free tier resets per-minute, not per-day — better for bursts. Groq's is per-day but faster. So Groq handles the volume and Gemini catches overflow. Reversing this would burn Gemini's quota on every normal scan.
-
----
-
-## 7. Current State
+## Current State
 
 | Feature | Status |
 |---|---|
 | Lead scoring (0–10, 5 dimensions) | ✅ Live |
 | Connection note generation (≤280 chars) | ✅ Live |
-| DM generation | ✅ Live |
-| Follow-up on prospect reply | ✅ Live |
+| Personalised DM generation | ✅ Live |
+| Context-aware follow-up on reply | ✅ Live |
 | Google Sheets CRM sync | ✅ Live |
-| Chat history persistence | ✅ Live |
+| Chat history persistence across sessions | ✅ Live |
 | API key rotation + Gemini fallback | ✅ Live |
-| Profile-only scraping (no noise) | ✅ Live |
-| Backend deployment (Railway) | 🔄 Pending |
-| LinkedIn scraping resilience improvements | 🔄 In progress |
+| Profile-only scraping (no sidebar noise) | ✅ Live |
+| Backend hosting (shareable URL) | 🔄 Pending — Railway deployment ready |
 
 ---
 
-## 8. The Honest Gaps
+## Honest Gaps
 
-- **Backend is still localhost** — works on one machine, not shareable until deployed to Railway (credentials are ready, deployment pending)
-- **LinkedIn scraping is fragile** — LinkedIn ships DOM changes without notice; the anchor ID approach (`#experience`) is more stable than class-based selectors but not immune
-- **No rate limiting on the server** — a burst of scans can exhaust all API keys; a simple token-bucket would prevent this
-- **Messages are good, not great** — the component model produces structurally sound messages but occasionally the `insight` line reads generic; better few-shot examples in the prompt would fix this
+- Backend is still localhost — works on one machine, deployment to Railway is the next step
+- LinkedIn scraping is tied to LinkedIn's DOM — they ship changes without notice, which can break selectors
+- No rate limiting on the server — a burst of scans can exhaust API keys before rotation kicks in
 
 ---
 
-*Built by Elishma Talkar*  
-*Stack: ~1,650 lines of code across 7 files*
+*~1,650 lines of code across 7 files.*

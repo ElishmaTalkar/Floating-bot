@@ -673,9 +673,7 @@ if (!window.revopsInjected) {
             const industriesHtml = (icp.ideal_industries || []).map(i => `<span style="display:inline-block;padding:2px 8px;background:rgba(16,185,129,0.15);border-radius:10px;font-size:0.75rem;margin:2px;">${i}</span>`).join('');
             const painHtml = (icp.top_pain_signals || []).map(p => `<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:5px;"><span style="color:#f59e0b;flex-shrink:0;">⚡</span><span style="font-size:0.8rem;">${p}</span></div>`).join('');
             const avoidHtml = (icp.avoid || []).map(a => `<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:5px;"><span style="color:#ef4444;flex-shrink:0;">✗</span><span style="font-size:0.8rem;">${a}</span></div>`).join('');
-            const icpEl = document.createElement('div');
-            icpEl.className = 'message-ext bot-ext';
-            icpEl.innerHTML = `
+            addMessage(`
                 <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;opacity:0.5;margin-bottom:10px;">🎯 Who to pitch</div>
                 <div style="margin-bottom:10px;">
                     <div style="font-size:0.7rem;opacity:0.6;margin-bottom:5px;">IDEAL TITLES</div>
@@ -695,9 +693,7 @@ if (!window.revopsInjected) {
                     <div style="font-size:0.7rem;opacity:0.6;margin-bottom:5px;">SKIP IMMEDIATELY</div>
                     ${avoidHtml}
                 </div>
-            `;
-            document.getElementById('chat-messages-ext').appendChild(icpEl);
-            document.getElementById('chat-messages-ext').scrollTop = 99999;
+            `, 'bot-ext');
         });
     };
 

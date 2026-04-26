@@ -859,7 +859,6 @@ if (!window.revopsInjected) {
             const isProductPrefix = pasted.toUpperCase().startsWith('PRODUCT:');
             if (!isCommand && !isProductPrefix && pasted.length > 80) {
                 userInput.value = `PRODUCT: ${pasted}`;
-                sendBtn.click();
             }
         }, 50);
     });
